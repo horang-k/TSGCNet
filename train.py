@@ -48,7 +48,8 @@ if __name__ == "__main__":
 
     """--------------------------- Build Network and optimizer----------------------"""
     model = TSGCNet(in_channels=12, output_channels=8, k=k)
-    model = torch.nn.DataParallel(model, device_ids=[0,1])
+    # model = torch.nn.DataParallel(model, device_ids=[0,1])
+    ## HR changed GPU parallel usage ##
     model.cuda()
     optimizer = torch.optim.Adam(
     model.parameters(),
