@@ -9,20 +9,16 @@ import torch.nn.functional as F
 import time
 from torch.autograd import Variable
 
-def knn(x, cos_k, dist_k):      #사용 : knn(coor, k=k) #output = (batch_size, cell_num, nerest_cell_idx)
+def knn(x, k):      #사용 : knn(coor, k=k) #output = (batch_size, cell_num, nerest_cell_idx)
     #x.shape = torch.size([1, 12, 16000])
-    #Euclidean distance
-    inner = torch.matmul(x.transpose(2, 1), x)                  #size([1,16000,16000])
-    xx = torch.sum(x ** 2, dim=1, keepdim=True)                 #size([1, 1, 16000])
-    pairwise_distance = -xx + 2*inner - xx.transpose(2, 1)      #size([1, 1, 16000])
-    dist_idx = pairwise_distance.topk(k=dist_k+1, dim=-1)[1][:,:,1:]  #size([1, 16000, dist_k])
-    #cosine similarity
-    under = torch.matmul(xx.transpose(2, 1), xx)
-    under = torch.reciprocal(under)
-    under = torch.sqrt(under)
-    cosim = inner * under
-    cos_idx = cosim.topk(k=cos_k+1, dim=-1)[1][:,:,1:]  #size([1, 16000, cos_k])
-    idx = torch.cat((dist_idx, cos_idx), 2)             #size([1, 16000, k])
+    inner = -2 * torch.matmul(x.transpose(2, 1), x) #(16000,12)x(12,16000)
+    #inner.shape = torch.size([1,16000,16000])
+    xx = torch.sum(x ** 2, dim=1, keepdim=True)
+    #xx.shape = torch.Size([1, 1, 16000])
+    pairwise_distance = -xx - inner - xx.transpose(2, 1) #a^2-2aa'+a'^2 = (a-a')^2 ==> Euclidean distance
+    #pairwise_distance.shape = torch.Size([1, 1, 16000])
+    idx = pairwise_distance.topk(k=k+1, dim=-1)[1][:,:,1:]  # (batch_size, num_points, k)
+    #idx.shape = (1,16000,32)
     return idx
 
 
@@ -84,13 +80,13 @@ class STNkd(nn.Module):
         return x
 
 
-def get_graph_feature(coor, nor, cos_k, dist_k, k=10):
+def get_graph_feature(coor, nor, k=10):
     batch_size, num_dims, num_points  = coor.shape
     #coor.shape = torch.Size([1, 12, 16000])
     coor = coor.view(batch_size, -1, num_points)
     #coor.shape = torch.Size([1, 12, 16000])
 
-    idx = knn(coor, cos_k, dist_k)
+    idx = knn(coor, k=k)
     index = idx
     device = torch.device('cuda')
 
@@ -157,17 +153,9 @@ class GraphAttention(nn.Module):
 
 
 class TSGCNet(nn.Module):
-    def __init__(self, k=16, in_channels=12, output_channels=8, real_ratio = 0):
+    def __init__(self, k=16, in_channels=12, output_channels=8):
         super(TSGCNet, self).__init__()
-
         self.k = k
-        
-        ## HR
-        self.real_ratio = real_ratio
-        self.cos_k = int(real_ratio*k)
-        self.dist_k = k-self.cos_k
-        ##
-
         ''' coordinate stream '''
         self.bn1_c = nn.BatchNorm2d(64)
         self.bn2_c = nn.BatchNorm2d(64)
@@ -251,10 +239,7 @@ class TSGCNet(nn.Module):
 
 
     def forward(self, x):
-        ###for test
-        #print("\n\n\n",self.cos_k, self.dist_k, self.k )
         batch_size = x.size(0)
-        
         coor = x[:, :12, :]
         nor = x[:, 12:, :]
         ##neighbor = knn(coor[:, 9:, :], k=self.k) ## coor에 대한 index 
@@ -272,7 +257,7 @@ class TSGCNet(nn.Module):
         nor = nor.transpose(2, 1)
         ## Data shape = [1,24, 16000] => coor = [1, 12, 16000], nor = [1, 12, 16000]
 
-        coor1, nor1, index = get_graph_feature(coor, nor, cos_k=self.cos_k, dist_k=self.dist_k, k=self.k)
+        coor1, nor1, index = get_graph_feature(coor, nor, k=self.k)
 
         ## coor1, nor1, index = 
 
@@ -281,13 +266,13 @@ class TSGCNet(nn.Module):
         coor1 = self.attention_layer1_c(index, coor, coor1) ## index = knn(coor,k), coor1 = feature
         nor1 = nor1.max(dim=-1, keepdim=False)[0]
 
-        coor2, nor2, index = get_graph_feature(coor1, nor1, cos_k=self.cos_k, dist_k=self.dist_k, k=self.k)
+        coor2, nor2, index = get_graph_feature(coor1, nor1, k=self.k)
         coor2 = self.conv2_c(coor2)
         nor2 = self.conv2_n(nor2)
         coor2 = self.attention_layer2_c(index, coor1, coor2)
         nor2 = nor2.max(dim=-1, keepdim=False)[0]
 
-        coor3, nor3, index = get_graph_feature(nor2, coor2, cos_k=self.cos_k, dist_k=self.dist_k, k=self.k)
+        coor3, nor3, index = get_graph_feature(nor2, coor2, k=self.k)
         coor3 = self.conv3_c(coor3)
         nor3 = self.conv3_n(nor3)
         coor3 = self.attention_layer3_c(index, coor2, coor3)
@@ -330,7 +315,7 @@ if __name__ == "__main__":
     # input size: [batch_size, C, N], where C is number of dimension, N is the number of mesh.
     x = torch.rand(1,24,16000)
     x = x.cuda()
-    model = TSGCNet(in_channels=12, output_channels=8, k=32, real_ratio=0)
+    model = TSGCNet(in_channels=12, output_channels=8, k=32)
     model = model.cuda()
     y = model(x)
     print(y.shape)

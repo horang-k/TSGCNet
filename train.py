@@ -73,6 +73,7 @@ if __name__ == "__main__":
         for i, data in tqdm(enumerate(train_loader, 0), total=len(train_loader), smoothing=0.9):
             _, points_face, label_face, label_face_onehot, name, _ = data
             coordinate = points_face.transpose(2,1)
+            ## coordinate =  torch.Size([1, 24, 16000])
             coordinate, label_face = Variable(coordinate.float()), Variable(label_face.long())
             label_face_onehot = Variable(label_face_onehot)
             coordinate, label_face, label_face_onehot = coordinate.cuda(), label_face.cuda(), label_face_onehot.cuda()
