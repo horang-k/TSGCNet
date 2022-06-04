@@ -26,7 +26,7 @@ def seed_everything(seed):
     torch.backends.cudnn.benchmark = True  # type: ignore
 
 if __name__ == "__main__":
-    seed_everythiing(1)
+    seed_everything(1)
     os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
     """-------------------------- parameters --------------------------------------"""
     batch_size = 2
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     his_loss = []
     his_smotth = []
     class_weights = torch.ones(15).cuda()
-    for epoch in range(0, 200):
+    for epoch in range(0, 100):
         scheduler.step()
         lr = max(optimizer.param_groups[0]['lr'], LEARNING_RATE_CLIP)
         optimizer.param_groups[0]['lr'] = lr
@@ -99,16 +99,20 @@ if __name__ == "__main__":
             optimizer.step()
             his_loss.append(loss.cpu().data.numpy())
         if epoch % 10 == 0:
-            print('Learning rate: %f' % (lr))
-            print("loss: %f" % (np.mean(his_loss)))
+            #print('Learning rate: %f' % (lr))
+            #print("loss: %f" % (np.mean(his_loss)))
             writer.add_scalar("loss", np.mean(his_loss), epoch)
             metrics, mIoU, cat_iou = test_semseg(model, test_loader, num_classes=8)
-            print("Epoch %d, accuracy= %f, mIoU= %f " % (epoch, metrics['accuracy'], mIoU))
+            #print("Epoch %d, accuracy= %f, mIoU= %f " % (epoch, metrics['accuracy'], mIoU))
+            print("from here!!!!")
+            print(epoch)
+            print(metrics['accuracy'])
+            print(mIoU)
             logger.info("Epoch: %d, accuracy= %f, mIoU= %f loss= %f" % (epoch, metrics['accuracy'], mIoU, np.mean(his_loss)))
             writer.add_scalar("accuracy", metrics['accuracy'], epoch)
             if (metrics['accuracy'] > best_acc):
                 best_acc = metrics['accuracy']
-                print("best accuracy: %f best mIoU :%f" % (best_acc, mIoU))
+                #print("best accuracy: %f best mIoU :%f" % (best_acc, mIoU))
                 print(cat_iou)
                 torch.save(model.state_dict(), '%s/coordinate_%d_%f.pth' % (checkpoints, epoch, best_acc))
                 best_pth = '%s/coordinate_%d_%f.pth' % (checkpoints, epoch, best_acc)
