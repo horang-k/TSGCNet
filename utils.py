@@ -9,10 +9,19 @@ import pandas as pd
 
 from dataloader import generate_plyfile, plydataset
 
-
+def seed_everything(seed):
+    # random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)  # type: ignore
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True  # type: ignore
+    torch.backends.cudnn.benchmark = True  # type: ignore
 
 
 def compute_cat_iou(pred,target,iou_tabel):  # pred [B,N,C] target [B,N]
+    seed_everything(1)
     iou_list = []
     target = target.cpu().data.numpy()
     for j in range(pred.size(0)):
@@ -35,6 +44,7 @@ def compute_cat_iou(pred,target,iou_tabel):  # pred [B,N,C] target [B,N]
     return iou_tabel,iou_list
 
 def compute_overall_iou(pred, target, num_classes):
+    seed_everything(1)
     shape_ious = []
     pred_np = pred.cpu().data.numpy()
     target_np = target.cpu().data.numpy()
@@ -64,6 +74,7 @@ def test_semseg(model, loader, num_classes = 8, gpu=True, generate_ply=False):
     hist_acc: history of accuracy
     cat_iou: IoU for o category
     '''
+    seed_everything(1)
     iou_tabel = np.zeros((num_classes,3))
     metrics = defaultdict(lambda:list())
     hist_acc = []

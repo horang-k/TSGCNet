@@ -15,7 +15,18 @@ from utils import test_semseg
 from TSGCNet import TSGCNet
 import random
 
+def seed_everything(seed):
+    # random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)  # type: ignore
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True  # type: ignore
+    torch.backends.cudnn.benchmark = True  # type: ignore
+
 if __name__ == "__main__":
+    seed_everythiing(1)
     os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
     """-------------------------- parameters --------------------------------------"""
     batch_size = 2

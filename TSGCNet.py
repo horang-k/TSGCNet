@@ -9,6 +9,16 @@ import torch.nn.functional as F
 import time
 from torch.autograd import Variable
 
+def seed_everything(seed):
+    # random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)  # type: ignore
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True  # type: ignore
+    torch.backends.cudnn.benchmark = True  # type: ignore
+
 def knn(x, cos_k, dist_k):      #사용 : knn(coor, k=k) #output = (batch_size, cell_num, nerest_cell_idx)
     #x.shape = torch.size([1, 12, 16000])
     #Euclidean distance
@@ -325,7 +335,7 @@ class TSGCNet(nn.Module):
 
 
 if __name__ == "__main__":
-
+    seed_everything(1)
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
     # input size: [batch_size, C, N], where C is number of dimension, N is the number of mesh.
     x = torch.rand(1,24,16000)
